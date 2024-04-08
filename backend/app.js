@@ -6,9 +6,9 @@ import notFoundMiddleware from './middleware/not-found.js'
 
 // Routes
 import userRoutes from './routers/userRoutes.js'
-// import postRoutes from "./routes/postRoutes";
-// import commentRoutes from "./routes/commentRoutes";
-// import postCategoriesRoutes from "./routes/postCategoriesRoutes";
+import postRoutes from './routers/postRoutes.js'
+import commentRoutes from './routers/commentRoutes.js'
+import postCategoriesRoutes from './routers/postCategoriesRoutes.js'
 
 dotenv.config()
 const app = express()
@@ -21,12 +21,12 @@ app.get('/', (req, res) => {
 })
 
 app.use('/api/users', userRoutes)
-// app.use("/api/posts", postRoutes);
-// app.use("/api/comments", commentRoutes);
-// app.use("/api/post-categories", postCategoriesRoutes);
+app.use('/api/posts', postRoutes)
+app.use('/api/comments', commentRoutes)
+app.use('/api/post-categories', postCategoriesRoutes)
 
 // error handler middleware
-// app.use(notFoundMiddleware)
+app.use(notFoundMiddleware)
 app.use(errorHandlerMiddleware)
 
 const PORT = process.env.PORT || 5000
