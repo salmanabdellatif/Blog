@@ -1,4 +1,6 @@
 import User from '../models/user.js'
+import Post from '../models/post.js'
+import Comment from '../models/comment.js'
 import { uploadPicture } from '../middleware/uploadPicture.js'
 import { fileRemover } from '../utils/fileRemover.js'
 
@@ -51,22 +53,21 @@ const getAllUsers = async (req, res, next) => {
   try {
     // get search keyword from query
     const filter = req.query.keywords
-    console.log(filter)
     let where = {}
     // set a mongodb query object
     if (filter) {
+      // search users with email & name
       where.$or = [
         { email: { $regex: filter, $options: 'i' } },
         { name: { $regex: filter, $options: 'i' } },
       ]
     }
-    // search users with email & name
     let query = User.find(where)
 
     const page = parseInt(req.query.page) || 1 // current page number
     const pageSize = parseInt(req.query.limit) || 10 // user per page
     const skip = (page - 1) * pageSize // documents to skip
-    const total = await User.find(where).countDocuments() // total docs-users
+    const total = await User.find(where).countDocuments() // total users
     const pages = Math.ceil(total / pageSize) // total page number
 
     res.header({
@@ -125,8 +126,8 @@ const updateUser = async (req, res, next) => {
     if (!user) {
       return res.status(404).json('User not found')
     }
-
-    if (!req.body.admin && req.user.admin) {
+    // only admins can change the admin field
+    if (typeof req.body.admin !== 'undefined' && req.user.admin) {
       user.admin = req.body.admin
     }
 
@@ -156,52 +157,50 @@ const updateUserAvatar = async (req, res, next) => {
 
     upload(req, res, async function (err) {
       if (err) {
-        const error = new Error(
-          'An unknown error occured when uploading ' + err.message
-        )
-        next(error)
-      } else {
-        // every thing went well
-        if (req.file) {
-          // if there is a picture
-          let filename
-          let updatedUser = await User.findById(req.user._id)
-          filename = updatedUser.avatar
-          if (filename) {
-            fileRemover(filename)
-          }
-          updatedUser.avatar = req.file.filename
-          await updatedUser.save()
-          const responseData = {
-            _id: updatedUser._id,
-            avatar: updatedUser.avatar,
-            name: updatedUser.name,
-            email: updatedUser.email,
-            verified: updatedUser.verified,
-            admin: updatedUser.admin,
-            token: await updatedUser.createJWT(),
-          }
-          return res.status(200).json({ updatedUser: responseData })
-        } else {
-          // if there is no picture
-          let filename
-          let updatedUser = await User.findById(req.user._id)
-          filename = updatedUser.avatar
-          updatedUser.avatar = ''
-          await updatedUser.save()
+        return res
+          .status(500)
+          .json('An unknown error occured when uploading ' + err.message)
+      }
+      // every thing went well
+      if (req.file) {
+        // if there is a picture
+        let filename
+        let updatedUser = await User.findById(req.user._id)
+        filename = updatedUser.avatar
+        if (filename) {
           fileRemover(filename)
-
-          const responseData = {
-            _id: updatedUser._id,
-            avatar: updatedUser.avatar,
-            name: updatedUser.name,
-            email: updatedUser.email,
-            verified: updatedUser.verified,
-            admin: updatedUser.admin,
-            token: await updatedUser.createJWT(),
-          }
-          return res.status(200).json({ updatedUser: responseData })
         }
+        updatedUser.avatar = req.file.filename
+        await updatedUser.save()
+        const responseData = {
+          _id: updatedUser._id,
+          avatar: updatedUser.avatar,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          verified: updatedUser.verified,
+          admin: updatedUser.admin,
+          token: await updatedUser.createJWT(),
+        }
+        return res.status(200).json({ updatedUser: responseData })
+      } else {
+        // if there is no picture
+        let filename
+        let updatedUser = await User.findById(req.user._id)
+        filename = updatedUser.avatar
+        updatedUser.avatar = ''
+        await updatedUser.save()
+        fileRemover(filename)
+
+        const responseData = {
+          _id: updatedUser._id,
+          avatar: updatedUser.avatar,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          verified: updatedUser.verified,
+          admin: updatedUser.admin,
+          token: await updatedUser.createJWT(),
+        }
+        return res.status(200).json({ updatedUser: responseData })
       }
     })
   } catch (error) {
@@ -214,9 +213,13 @@ const deleteUser = async (req, res, next) => {
     if (!user) {
       return res.status(404).json('user not found')
     }
-    console.log(user)
-    const d = await User.deleteOne({ _id: user._id })
-    console.log(d)
+    const postsToDelete = await Post.find({ user: user._id })
+    const postIdsToDelete = postsToDelete.map(post => post._id)
+    await Comment.deleteMany({ post: { $in: postIdsToDelete } })
+    await Post.deleteMany({ _id: { $in: postIdsToDelete } })
+    const deletedUser = await User.findByIdAndDelete(user._id)
+    fileRemover(deletedUser.avatar)
+
     return res.status(200).json({ message: 'user deleted successfully' })
   } catch (error) {
     next(error)
