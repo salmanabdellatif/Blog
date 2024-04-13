@@ -1,31 +1,38 @@
 import Post from '../models/post.js'
+import Comment from '../models/comment.js'
 import { v4 as uuidv4 } from 'uuid'
-import uploadPostPhoto from '../middleware/uploadPostPhoto.js'
+import { uploadPicture } from '../middleware/uploadPicture.js'
+import { fileRemover } from '../utils/fileRemover.js'
 
 const createPost = async (req, res, next) => {
   try {
-    uploadPostPhoto.single('postPhoto')(req, res, async function (err) {
-      if (err) {
-        const error = new Error(
-          'An unknown error occured when uploading ' + err.message
-        )
+    const upload = uploadPicture.single('postPhoto')
+    upload(req, res, async function (err) {
+      try {
+        if (err) {
+          return res
+            .status(500)
+            .json('An unknown error occured when uploading ' + err.message)
+        }
+        if (!req.file) {
+          return res.status(405).json('please provide photo')
+        }
+        const { title, caption, content, body, tags, categories } = req.body
+        const post = await Post.create({
+          title,
+          caption,
+          content,
+          slug: uuidv4(),
+          body,
+          tags,
+          categories,
+          photo: req.file.filename,
+          user: req.user._id,
+        })
+        return res.json(post)
+      } catch (error) {
         next(error)
       }
-      if (!req.file) {
-        const error = new Error('please provide post photo')
-        return next(error)
-      }
-      const { title, caption, content } = req.body
-      const post = new Post({
-        title,
-        caption,
-        content,
-        slug: uuidv4(),
-        photo: req.file.buffer,
-        user: req.user._id,
-      })
-      const createdPost = await post.save()
-      return res.json(createdPost)
     })
   } catch (error) {
     next(error)
@@ -37,24 +44,23 @@ const updatePost = async (req, res, next) => {
     if (!post) {
       return res.status(404).json('post not found')
     }
-
-    uploadPostPhoto.single('postPhoto')(req, res, async function (err) {
+    const upload = uploadPicture.single('postPhoto')
+    upload(req, res, async function (err) {
       if (err) {
-        const error = new Error(
-          'An unknown error occured when uploading ' + err.message
-        )
-        next(error)
+        return res
+          .status(500)
+          .json('An unknown error occured when uploading ' + err.message)
       }
       const { title, caption, content } = req.body
       post.title = title || post.title
       post.caption = caption || post.caption
       post.content = content || post.content
       if (req.file) {
-        post.photo = req.file.buffer || post.photo
+        post.photo = req.file.filename
+        fileRemover(post.photo)
       }
-
       const updatedPost = await post.save()
-      return res.status(200).json(updatedPost)
+      return res.json(updatedPost)
     })
   } catch (error) {
     next(error)
@@ -66,7 +72,8 @@ const deletePost = async (req, res, next) => {
     if (!post) {
       return res.status(404).json('post not fount')
     }
-
+    fileRemover(post.photo)
+    await Comment.deleteMany({ post: post._id })
     return res.status(200).json('post successfully deleted')
   } catch (error) {
     next(error)
@@ -74,10 +81,41 @@ const deletePost = async (req, res, next) => {
 }
 const getPost = async (req, res, next) => {
   try {
-    const post = await Post.findOne({ slug: req.params.slug }).populate({
-      path: 'user',
-      select: ['avatar', 'name'],
-    })
+    const post = await Post.findOne({ slug: req.params.slug }).populate([
+      {
+        path: 'user',
+        select: ['avatar', 'name'],
+      },
+      {
+        path: 'categories',
+        select: ['title'],
+      },
+      {
+        path: 'comments',
+        match: {
+          check: true,
+          parent: null,
+        },
+        populate: [
+          {
+            path: 'user',
+            select: ['avatar', 'name'],
+          },
+          {
+            path: 'replies',
+            match: {
+              check: true,
+            },
+            populate: [
+              {
+                path: 'user',
+                select: ['avatar', 'name'],
+              },
+            ],
+          },
+        ],
+      },
+    ])
     if (!post) {
       return res.status(404).json('post not found')
     }
@@ -119,9 +157,12 @@ const getAllPosts = async (req, res, next) => {
           path: 'user',
           select: ['avatar', 'name', 'verified'],
         },
+        {
+          path: 'categories',
+          select: ['title'],
+        },
       ])
       .sort({ updatedAt: 'desc' })
-    console.log(result.length)
     return res.json(result)
   } catch (error) {
     next(error)
