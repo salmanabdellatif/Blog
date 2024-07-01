@@ -1,5 +1,6 @@
 import express from 'express'
 import dotenv from 'dotenv'
+import cors from 'cors'
 import connectDB from './db/connect.js'
 import errorHandlerMiddleware from './middleware/error-handler.js'
 import notFoundMiddleware from './middleware/not-found.js'
@@ -12,6 +13,7 @@ import postCategoriesRoutes from './routers/postCategoriesRoutes.js'
 
 dotenv.config()
 const app = express()
+app.use(cors())
 app.use(express.json())
 
 connectDB()
