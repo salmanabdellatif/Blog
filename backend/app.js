@@ -1,4 +1,6 @@
 import express from 'express'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import dotenv from 'dotenv'
 import cors from 'cors'
 import connectDB from './db/connect.js'
@@ -26,6 +28,13 @@ app.use('/api/users', userRoutes)
 app.use('/api/posts', postRoutes)
 app.use('/api/comments', commentRoutes)
 app.use('/api/post-categories', postCategoriesRoutes)
+
+// Define __dirname
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+// static assets
+app.use('/uploads', express.static(path.join(__dirname, '/uploads')))
 
 // error handler middleware
 app.use(notFoundMiddleware)
