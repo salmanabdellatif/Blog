@@ -7,9 +7,9 @@ const postSchema = new Schema(
     content: { type: String, required: true },
     slug: { type: String, required: true, unique: true },
     photo: { type: String, required: true },
-    user: { type: Schema.Types.ObjectId, ref: 'user', required: true },
+    user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     tags: [{ type: String }],
-    categories: [{ type: Schema.Types.ObjectId, ref: 'PostCategory' }],
+    categories: [{ type: Schema.Types.ObjectId, ref: 'PostCategories' }],
   },
   { timestamps: true, toJSON: { virtuals: true } }
 )
