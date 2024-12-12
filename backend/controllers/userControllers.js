@@ -144,9 +144,9 @@ const updateUser = async (req, res, next) => {
       email: updatedUser.email,
       verified: updatedUser.verified,
       admin: updatedUser.admin,
-      token: await updateUser.createJWT(),
+      token: await updatedUser.createJWT(),
     }
-    return res.status(200).json({ updatedUser: responseData })
+    return res.status(200).json(responseData)
   } catch (error) {
     next(error)
   }
@@ -181,7 +181,7 @@ const updateUserAvatar = async (req, res, next) => {
           admin: updatedUser.admin,
           token: await updatedUser.createJWT(),
         }
-        return res.status(200).json({ updatedUser: responseData })
+        return res.status(200).json(responseData)
       } else {
         // if there is no picture
         let filename
@@ -200,7 +200,7 @@ const updateUserAvatar = async (req, res, next) => {
           admin: updatedUser.admin,
           token: await updatedUser.createJWT(),
         }
-        return res.status(200).json({ updatedUser: responseData })
+        return res.status(200).json(responseData)
       }
     })
   } catch (error) {
