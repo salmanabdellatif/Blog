@@ -9,9 +9,7 @@ const CommentsContainer = ({ className, loggedInUserId }) => {
   const [comments, setComments] = useState([])
   const mainComments = comments.filter(comment => comment.parent === null)
   const [affectedComment, setAffectedComment] = useState(null)
-  console.log(mainComments)
 
-  console.log(comments)
 
   useEffect(() => {
     async function fetchComments(params) {
